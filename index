@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>VIDI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Crimson+Pro:ital,wght@0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{--gold:#C9A84C;--gold-l:#E8D5A0;--navy:#1A2744;--cream:#F7F3EC;--muted:#6B6056;--border:rgba(201,168,76,0.2);}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Crimson Pro',Georgia,serif;background:var(--cream);color:#1a1a1a;display:flex;flex-direction:column;}
+
+/* ── LAYOUT SHELL ── */
+.shell{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.screen{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.screen.active{display:flex;}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+
+/* ── TOP BAR ── */
+.topbar{background:var(--navy);height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 1rem;border-bottom:1px solid var(--gold);flex-shrink:0;position:relative;}
+.topbar-logo{display:flex;align-items:center;gap:6px;cursor:pointer;}
+.logo-txt{font-family:'Cinzel',serif;color:var(--gold);font-size:1rem;letter-spacing:.15em;}
+.topbar-title{font-family:'Cinzel',serif;color:rgba(255,255,255,.75);font-size:.72rem;letter-spacing:.1em;position:absolute;left:50%;transform:translateX(-50%);}
+.back-icon{background:none;border:none;color:var(--gold);font-size:1.1rem;cursor:pointer;padding:6px;min-width:36px;}
+
+/* ── BOTTOM NAV ── */
+.bottomnav{background:var(--navy);border-top:1px solid var(--gold);display:flex;flex-shrink:0;safe-area-inset-bottom:env(safe-area-inset-bottom);}
+.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 2px 10px;cursor:pointer;border:none;background:none;gap:3px;}
+.bnav-icon{font-size:1.3rem;}
+.bnav-lbl{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.06em;color:rgba(255,255,255,.45);white-space:nowrap;}
+.bnav-btn.active .bnav-lbl{color:var(--gold);}
+.bnav-btn.active .bnav-icon{filter:drop-shadow(0 0 4px rgba(201,168,76,.5));}
+
+/* ── HERO ── */
+.hero{background:linear-gradient(160deg,var(--navy) 0%,#0d1a30 100%);padding:1.75rem 1.25rem 1.5rem;text-align:center;border-bottom:1px solid var(--gold);flex-shrink:0;}
+.hero-sub{font-family:'Cinzel',serif;color:var(--gold);font-size:.6rem;letter-spacing:.25em;margin-bottom:.5rem;}
+.hero h1{font-family:'Cinzel',serif;color:#fff;font-size:1.5rem;font-weight:400;line-height:1.25;margin-bottom:.5rem;}
+.hero p{color:rgba(255,255,255,.6);font-size:.88rem;font-style:italic;margin-bottom:1.1rem;}
+.sbar{display:flex;border:1px solid var(--gold);border-radius:3px;overflow:hidden;background:rgba(255,255,255,.07);}
+.sbar input{flex:1;background:none;border:none;padding:10px 12px;color:#fff;font-family:'Crimson Pro',serif;font-size:.9rem;outline:none;min-width:0;}
+.sbar input::placeholder{color:rgba(255,255,255,.4);font-style:italic;}
+.sbar button{background:var(--gold);border:none;color:var(--navy);font-family:'Cinzel',serif;font-size:.6rem;padding:10px 14px;cursor:pointer;flex-shrink:0;}
+
+/* ── FILTERS ── */
+.filters{display:flex;gap:6px;padding:.75rem 1rem;background:#fff;border-bottom:.5px solid var(--border);overflow-x:auto;flex-shrink:0;}
+.filters::-webkit-scrollbar{display:none;}
+.pill{border:1px solid var(--border);background:none;color:var(--muted);font-family:'Crimson Pro',serif;font-size:.8rem;padding:5px 12px;border-radius:20px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.pill.active{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+
+/* ── COUNT BAR ── */
+.count-bar{font-family:'Cinzel',serif;font-size:.72rem;color:var(--navy);padding:.6rem 1rem;background:#fff;border-bottom:.5px solid var(--border);flex-shrink:0;}
+.count-bar span{color:var(--gold);}
+
+/* ── CARDS ── */
+.cards{padding:.75rem;display:flex;flex-direction:column;gap:.75rem;}
+.card{background:#fff;border:.5px solid var(--border);border-radius:6px;overflow:hidden;display:flex;align-items:stretch;min-height:100px;}
+.card-img-wrap{width:110px;flex-shrink:0;overflow:hidden;background:var(--navy);}
+.card-img-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
+.card-body{flex:1;padding:.75rem .85rem;display:flex;flex-direction:column;justify-content:space-between;min-width:0;}
+.card-name{font-family:'Cinzel',serif;font-size:.82rem;color:var(--navy);line-height:1.25;margin-bottom:2px;}
+.card-loc{font-size:.74rem;color:var(--muted);font-style:italic;margin-bottom:.4rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-foot{display:flex;justify-content:space-between;align-items:center;}
+.card-price{font-family:'Cinzel',serif;color:var(--gold);font-size:.8rem;}
+.card-stars{font-size:.72rem;color:var(--muted);}
+.card-badges{display:flex;gap:4px;margin-bottom:.35rem;flex-wrap:wrap;}
+.badge{font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.08em;padding:1px 6px;border-radius:2px;}
+.badge-type{color:var(--gold);background:rgba(26,39,68,.08);border:.5px solid var(--border);}
+.badge-camp{color:#fff;background:rgba(40,80,40,.8);}
+
+/* ── DETAIL ── */
+.det-img-wrap{width:100%;height:200px;overflow:hidden;background:var(--navy);flex-shrink:0;position:relative;}
+.det-img-wrap img{width:100%;height:100%;object-fit:cover;}
+.det-img-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(10,15,30,.85),transparent 55%);display:flex;flex-direction:column;justify-content:flex-end;padding:1rem;}
+.det-img-overlay h1{font-family:'Cinzel',serif;color:#fff;font-size:1.2rem;font-weight:400;line-height:1.2;}
+.det-img-overlay p{color:var(--gold);font-size:.75rem;font-style:italic;}
+.det-body{padding:1rem;}
+.det-desc{font-size:.9rem;line-height:1.7;color:var(--muted);font-style:italic;margin-bottom:1rem;}
+.det-sec{font-family:'Cinzel',serif;font-size:.7rem;color:var(--navy);letter-spacing:.1em;border-bottom:.5px solid var(--border);padding-bottom:.35rem;margin-bottom:.75rem;margin-top:1.25rem;}
+.det-sec:first-of-type{margin-top:0;}
+.visit-item{border:.5px solid var(--border);border-radius:4px;padding:.75rem;display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;cursor:pointer;}
+.visit-item.sel{border-color:var(--gold);background:rgba(201,168,76,.05);}
+.v-name{font-family:'Cinzel',serif;font-size:.78rem;color:var(--navy);margin-bottom:2px;}
+.v-desc{font-size:.73rem;color:var(--muted);font-style:italic;}
+.v-price{font-family:'Cinzel',serif;color:var(--gold);font-size:.88rem;margin-bottom:3px;text-align:right;}
+.v-btn{font-family:'Cinzel',serif;font-size:.58rem;color:var(--navy);background:none;border:.5px solid var(--navy);padding:3px 9px;border-radius:2px;cursor:pointer;display:block;}
+.visit-item.sel .v-btn{background:var(--navy);color:var(--gold);}
+.det-infos{display:flex;gap:1.25rem;flex-wrap:wrap;margin-bottom:.5rem;}
+.det-info-item{font-size:.82rem;color:var(--muted);}
+.det-info-item strong{display:block;font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.08em;color:var(--navy);margin-bottom:1px;}
+
+/* ── BOOKING PANEL ── */
+.bk-panel{background:var(--navy);border-top:1px solid var(--gold);padding:1rem;flex-shrink:0;}
+.bk-sel-txt{font-size:.8rem;color:rgba(255,255,255,.55);font-style:italic;margin-bottom:.85rem;}
+.bk-row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.6rem;}
+.bk-lbl{display:block;font-family:'Cinzel',serif;color:rgba(255,255,255,.45);font-size:.56rem;letter-spacing:.1em;margin-bottom:3px;}
+.bk-inp,.bk-sel{width:100%;background:rgba(255,255,255,.09);border:.5px solid rgba(201,168,76,.35);color:#fff;font-family:'Crimson Pro',serif;font-size:.88rem;padding:8px 9px;border-radius:3px;outline:none;}
+.bk-sel option{background:var(--navy);}
+.bk-total-row{display:flex;justify-content:space-between;align-items:baseline;margin:.75rem 0;}
+.bk-total-row span{color:rgba(255,255,255,.5);font-size:.8rem;font-style:italic;}
+.bk-total-row strong{font-family:'Cinzel',serif;color:var(--gold);font-size:1.1rem;}
+.bk-cta{width:100%;background:var(--gold);color:var(--navy);font-family:'Cinzel',serif;font-size:.75rem;letter-spacing:.1em;border:none;padding:13px;border-radius:3px;cursor:pointer;margin-bottom:.5rem;}
+.bk-demande{width:100%;background:none;border:1px solid rgba(201,168,76,.4);color:rgba(201,168,76,.8);font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.08em;padding:10px;border-radius:3px;cursor:pointer;}
+
+/* ── AVIS ── */
+.avis-item{border-bottom:.5px solid var(--border);padding:.75rem 0;}
+.avis-top{display:flex;justify-content:space-between;margin-bottom:.3rem;}
+.avis-auteur{font-family:'Cinzel',serif;font-size:.75rem;color:var(--navy);}
+.avis-date{font-size:.7rem;color:var(--muted);}
+.avis-stars{color:var(--gold);font-size:.78rem;margin-bottom:.2rem;}
+.avis-text{font-size:.85rem;color:var(--muted);font-style:italic;line-height:1.6;}
+.avis-form-box{background:rgba(201,168,76,.06);border:.5px solid var(--border);border-radius:4px;padding:.9rem;margin-top:.75rem;}
+.avis-form-title{font-family:'Cinzel',serif;font-size:.7rem;color:var(--navy);margin-bottom:.65rem;}
+.star-row{display:flex;gap:6px;margin-bottom:.65rem;}
+.star-btn{background:none;border:none;font-size:1.5rem;cursor:pointer;color:rgba(201,168,76,.3);padding:2px;}
+.star-btn.on{color:var(--gold);}
+
+/* ── MAP ── */
+#leaflet-map{height:320px;width:100%;flex-shrink:0;}
+.map-list{padding:.75rem;}
+
+/* ── SHARED FORM STYLES ── */
+.page-header{background:linear-gradient(160deg,var(--navy) 0%,#0d1a30 100%);padding:1.5rem 1rem;text-align:center;border-bottom:1px solid var(--gold);flex-shrink:0;}
+.page-header h1{font-family:'Cinzel',serif;color:#fff;font-size:1.3rem;font-weight:400;margin-bottom:.3rem;}
+.page-header p{color:rgba(255,255,255,.6);font-style:italic;font-size:.85rem;}
+.fsec{background:#fff;border:.5px solid var(--border);border-radius:6px;padding:1rem;margin-bottom:.85rem;}
+.fsec-t{font-family:'Cinzel',serif;font-size:.7rem;color:var(--navy);letter-spacing:.1em;border-bottom:.5px solid var(--border);padding-bottom:.5rem;margin-bottom:.85rem;}
+.fg{margin-bottom:.75rem;}
+.flbl{display:block;font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.1em;color:var(--muted);margin-bottom:4px;}
+.finp,.fsel,.ftxt{width:100%;border:.5px solid var(--border);font-family:'Crimson Pro',serif;font-size:.95rem;color:#1a1a1a;padding:10px;border-radius:3px;background:var(--cream);outline:none;}
+.finp:focus,.fsel:focus,.ftxt:focus{border-color:var(--gold);}
+.ftxt{resize:none;min-height:80px;}
+.frow2{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+.fsave-btn{background:var(--navy);color:var(--gold);font-family:'Cinzel',serif;font-size:.65rem;letter-spacing:.1em;border:1px solid var(--gold);padding:10px 18px;border-radius:3px;cursor:pointer;width:100%;}
+.sub-btn{width:100%;background:var(--navy);color:var(--gold);font-family:'Cinzel',serif;font-size:.75rem;letter-spacing:.12em;border:1px solid var(--gold);padding:14px;border-radius:3px;cursor:pointer;margin-bottom:1.5rem;}
+.success-msg{display:none;background:rgba(201,168,76,.1);border:1px solid var(--gold);border-radius:4px;padding:.85rem;text-align:center;margin-bottom:.85rem;font-family:'Cinzel',serif;font-size:.78rem;color:var(--navy);}
+
+/* ── DASHBOARD ── */
+.db-tabs{display:flex;background:#fff;border-bottom:.5px solid var(--border);overflow-x:auto;flex-shrink:0;}
+.db-tabs::-webkit-scrollbar{display:none;}
+.db-tab{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.07em;color:var(--muted);background:none;border:none;padding:.7rem .9rem;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0;}
+.db-tab.active{color:var(--navy);border-bottom-color:var(--gold);}
+.db-panel{display:none;padding:1rem;}
+.db-panel.active{display:block;}
+.kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1rem;}
+.kpi{background:var(--cream);border:.5px solid var(--border);border-radius:4px;padding:.75rem;}
+.kpi-lbl{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;color:var(--muted);margin-bottom:.3rem;}
+.kpi-val{font-family:'Cinzel',serif;font-size:1.3rem;color:var(--navy);}
+.kpi-trend{font-size:.7rem;color:#3a7d44;margin-top:2px;}
+.mini-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:.5rem;}
+.mini-table th{font-family:'Cinzel',serif;font-size:.58rem;color:var(--muted);border-bottom:.5px solid var(--border);padding:.45rem .5rem;text-align:left;}
+.mini-table td{padding:.5rem;border-bottom:.5px solid var(--border);}
+.status{display:inline-block;padding:2px 7px;border-radius:2px;font-family:'Cinzel',serif;font-size:.56rem;}
+.s-ok{background:rgba(58,125,68,.12);color:#3a7d44;}
+.s-att{background:rgba(201,168,76,.15);color:#7a5a10;}
+.s-ann{background:rgba(180,40,40,.1);color:#9a2a2a;}
+.db-visit-item{border:.5px solid var(--border);border-radius:4px;padding:.75rem;background:#fff;margin-bottom:.6rem;}
+.db-visit-name{font-family:'Cinzel',serif;font-size:.8rem;color:var(--navy);margin-bottom:2px;}
+.db-visit-sub{font-size:.74rem;color:var(--muted);font-style:italic;margin-bottom:.5rem;}
+.db-visit-actions{display:flex;gap:.5rem;}
+.db-v-btn{font-family:'Cinzel',serif;font-size:.58rem;padding:5px 12px;border-radius:2px;cursor:pointer;background:none;border:.5px solid var(--border);color:var(--muted);}
+.db-v-btn.gold{border-color:var(--gold);color:var(--gold);}
+.db-visit-edit{display:none;margin-top:.75rem;padding-top:.75rem;border-top:.5px solid var(--border);}
+.horaire-day{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap;}
+.horaire-day-name{font-family:'Cinzel',serif;font-size:.68rem;color:var(--navy);min-width:62px;}
+.horaire-check{accent-color:var(--gold);}
+.horaire-time{border:.5px solid var(--border);border-radius:2px;padding:5px 7px;font-family:'Crimson Pro',serif;background:var(--cream);font-size:.82rem;width:80px;}
+.ds-item{border:.5px solid var(--border);border-radius:4px;padding:.85rem;background:#fff;margin-bottom:.65rem;}
+.ds-header{display:flex;justify-content:space-between;margin-bottom:.65rem;}
+.ds-title{font-family:'Cinzel',serif;font-size:.75rem;color:var(--navy);}
+.creneaux-list{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem;}
+.creneau-tag{background:rgba(201,168,76,.1);border:.5px solid var(--gold);border-radius:2px;padding:3px 9px;font-family:'Cinzel',serif;font-size:.62rem;color:var(--navy);display:flex;align-items:center;gap:4px;}
+.creneau-tag button{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.7rem;padding:0;}
+.add-cr-btn{background:none;border:.5px dashed var(--border);color:var(--muted);font-family:'Cinzel',serif;font-size:.62rem;padding:3px 9px;border-radius:2px;cursor:pointer;margin-top:.4rem;}
+
+/* ── COMMENT ÇA MARCHE ── */
+.cmh-tabs{display:flex;background:#fff;border-bottom:.5px solid var(--border);overflow-x:auto;flex-shrink:0;}
+.cmh-tabs::-webkit-scrollbar{display:none;}
+.cmh-tab{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.06em;color:var(--muted);background:none;border:none;padding:.75rem .85rem;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.cmh-tab.active{color:var(--navy);border-bottom-color:var(--gold);}
+.cmh-panel{display:none;padding:1.1rem;}
+.cmh-panel.active{display:block;}
+.step-mobile{display:flex;gap:.85rem;margin-bottom:1rem;align-items:flex-start;}
+.step-num{width:36px;height:36px;border-radius:50%;background:var(--navy);border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;color:var(--gold);font-size:.9rem;flex-shrink:0;}
+.step-content h3{font-family:'Cinzel',serif;font-size:.82rem;color:var(--navy);margin-bottom:.25rem;}
+.step-content p{font-size:.85rem;color:var(--muted);line-height:1.6;}
+.arg-card{background:#fff;border:.5px solid var(--border);border-radius:4px;padding:.9rem;margin-bottom:.6rem;}
+.arg-card h4{font-family:'Cinzel',serif;font-size:.78rem;color:var(--navy);margin-bottom:.3rem;}
+.arg-card p{font-size:.84rem;color:var(--muted);line-height:1.6;}
+.faq-item{border-bottom:.5px solid var(--border);padding:.85rem 0;}
+.faq-q{font-family:'Cinzel',serif;font-size:.82rem;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;gap:.75rem;line-height:1.4;}
+.faq-a{font-size:.85rem;color:var(--muted);line-height:1.7;margin-top:.5rem;display:none;}
+.faq-a.open{display:block;}
+.tarif-card-m{background:#fff;border:.5px solid var(--border);border-radius:4px;padding:1rem;margin-bottom:.75rem;}
+.tarif-card-m.featured{border-color:var(--gold);background:var(--navy);}
+.tarif-card-m h3{font-family:'Cinzel',serif;font-size:.88rem;color:var(--navy);margin-bottom:.25rem;}
+.tarif-card-m.featured h3{color:var(--gold);}
+.tarif-card-m .price{font-family:'Cinzel',serif;font-size:1.5rem;color:var(--gold);margin:.5rem 0 .25rem;}
+.tarif-card-m p{font-size:.82rem;color:var(--muted);font-style:italic;}
+.tarif-card-m.featured p{color:rgba(255,255,255,.6);}
+.tarif-card-m ul{list-style:none;margin-top:.6rem;}
+.tarif-card-m ul li{font-size:.82rem;color:var(--muted);padding:.25rem 0;border-bottom:.5px solid var(--border);}
+.tarif-card-m.featured ul li{color:rgba(255,255,255,.7);border-bottom-color:rgba(255,255,255,.1);}
+.tarif-card-m ul li::before{content:'✦ ';color:var(--gold);font-size:.65rem;}
+.cta-box-m{background:var(--navy);border:1px solid var(--gold);border-radius:4px;padding:1.25rem;text-align:center;margin-top:1rem;}
+.cta-box-m h3{font-family:'Cinzel',serif;color:var(--gold);font-size:.9rem;margin-bottom:.4rem;}
+.cta-box-m p{color:rgba(255,255,255,.6);font-style:italic;font-size:.82rem;margin-bottom:.85rem;}
+.cta-box-m button{background:var(--gold);color:var(--navy);font-family:'Cinzel',serif;font-size:.7rem;border:none;padding:10px 22px;border-radius:2px;cursor:pointer;}
+
+/* ── DEMANDES ── */
+.ds-types-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1.1rem;}
+.ds-type-card{background:#fff;border:.5px solid var(--border);border-radius:4px;padding:.85rem .6rem;text-align:center;cursor:pointer;}
+.ds-type-card.sel{border-color:var(--gold);background:rgba(201,168,76,.05);}
+.ds-type-icon{font-size:1.4rem;margin-bottom:.3rem;}
+.ds-type-name{font-family:'Cinzel',serif;font-size:.65rem;color:var(--navy);}
+.ds-type-desc{font-size:.65rem;color:var(--muted);margin-top:.15rem;font-style:italic;}
+
+/* ── LEAFLET CUSTOM ── */
+.leaflet-popup-content-wrapper{background:var(--navy);border:1px solid var(--gold);border-radius:4px;color:#fff;font-family:'Crimson Pro',serif;font-size:.85rem;}
+.leaflet-popup-tip{background:var(--navy);}
+.leaflet-popup-content strong{font-family:'Cinzel',serif;color:var(--gold);display:block;font-size:.75rem;margin-bottom:2px;}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<!-- ══ ÉCRAN EXPLORER ══ -->
+<div class="screen active" id="screen-home">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="navTo('home')">
+      <svg width="26" height="32" viewBox="0 0 50 60"><path d="M10 40 L10 20 Q25 2 40 20 L40 40 L10 40Z" fill="none" stroke="#C9A84C" stroke-width="2.5"/><line x1="10" y1="40" x2="40" y2="40" stroke="#C9A84C" stroke-width="2.5"/><text x="25" y="38" text-anchor="middle" font-family="Cinzel" font-size="18" fill="#C9A84C">V</text></svg>
+      <span class="logo-txt">VIDI</span>
+    </div>
+  </div>
+  <div class="scroll">
+    <div class="hero">
+      <p class="hero-sub">Patrimoine religieux de France</p>
+      <h1>Réservez une visite guidée</h1>
+      <p>Cathédrales, chapelles, abbayes, mosquées…</p>
+      <div class="sbar"><input type="text" placeholder="Ville, édifice…" id="sinput" oninput="applyFilters()"/><button onclick="applyFilters()">OK</button></div>
+    </div>
+    <div class="filters" id="filters-bar">
+      <button class="pill active" onclick="setF(this,'all')">Tous</button>
+      <button class="pill" onclick="setF(this,'cathedral')">Cathédrales</button>
+      <button class="pill" onclick="setF(this,'mosque')">Mosquées</button>
+      <button class="pill" onclick="setF(this,'synagogue')">Synagogues</button>
+      <button class="pill" onclick="setF(this,'abbey')">Abbayes</button>
+      <button class="pill" onclick="setF(this,'chapel')">Chapelles</button>
+      <button class="pill" onclick="setF(this,'church')">Églises</button>
+      <button class="pill" onclick="setF(this,'campagne')">🌿 Campagne</button>
+    </div>
+    <div class="count-bar">Édifices disponibles <span id="count-lbl"></span></div>
+    <div class="cards" id="cards-list"></div>
+  </div>
+</div>
+
+<!-- ══ ÉCRAN CARTE ══ -->
+<div class="screen" id="screen-map">
+  <div class="topbar"><span class="topbar-title">Carte</span></div>
+  <div id="leaflet-map"></div>
+  <div class="scroll"><div class="map-list" id="map-list"></div></div>
+</div>
+
+<!-- ══ ÉCRAN DETAIL ══ -->
+<div class="screen" id="screen-detail">
+  <div class="topbar">
+    <button class="back-icon" onclick="navTo('home')">‹</button>
+    <span class="topbar-title" id="det-topbar-title">Édifice</span>
+  </div>
+  <div class="scroll" id="detail-scroll">
+    <div class="det-img-wrap">
+      <img id="det-img" src="" alt=""/>
+      <div class="det-img-overlay"><h1 id="det-name"></h1><p id="det-loc"></p></div>
+    </div>
+    <div class="det-body">
+      <p class="det-desc" id="det-desc"></p>
+      <div class="det-sec">Visites disponibles</div>
+      <div id="visits-list"></div>
+      <div class="det-sec">Infos pratiques</div>
+      <div class="det-infos" id="det-infos"></div>
+      <div class="det-sec">Avis</div>
+      <div id="avis-list"></div>
+      <div class="avis-form-box">
+        <div class="avis-form-title">Laisser un avis</div>
+        <div class="star-row"><button class="star-btn" onclick="setStar(1)">★</button><button class="star-btn" onclick="setStar(2)">★</button><button class="star-btn" onclick="setStar(3)">★</button><button class="star-btn" onclick="setStar(4)">★</button><button class="star-btn" onclick="setStar(5)">★</button></div>
+        <input class="finp" id="avis-nom" placeholder="Votre prénom" style="margin-bottom:6px"/>
+        <textarea class="ftxt" id="avis-txt" placeholder="Votre expérience…" style="min-height:64px"></textarea>
+        <button onclick="submitAvis()" style="background:var(--navy);color:var(--gold);font-family:'Cinzel',serif;font-size:.65rem;border:none;padding:9px 18px;border-radius:3px;cursor:pointer;margin-top:.5rem;width:100%">Publier</button>
+      </div>
+      <div style="height:1rem"></div>
+    </div>
+  </div>
+  <!-- Panneau réservation collé en bas -->
+  <div class="bk-panel">
+    <div class="bk-sel-txt" id="bk-sel">Sélectionnez une visite ci-dessus</div>
+    <div class="bk-row">
+      <div><label class="bk-lbl">Date</label><input type="date" class="bk-inp" id="bk-date"/></div>
+      <div><label class="bk-lbl">Créneau</label><select class="bk-sel" id="bk-time" style="width:100%"></select></div>
+    </div>
+    <div><label class="bk-lbl">Visiteurs</label>
+      <select class="bk-sel" id="bk-pax" onchange="updateTotal()" style="width:100%;margin-bottom:.5rem">
+        <option value="1">1 personne</option><option value="2" selected>2 personnes</option>
+        <option value="3">3 personnes</option><option value="4">4 personnes</option><option value="5">Groupe (5+)</option>
+      </select>
+    </div>
+    <div class="bk-total-row"><span>Total estimé</span><strong id="bk-total">—</strong></div>
+    <button class="bk-cta" onclick="doReserv()">Réserver</button>
+    <button class="bk-demande" onclick="goToDemande()">✉ Demande spécifique</button>
+  </div>
+</div>
+
+<!-- ══ ÉCRAN COMMENT ÇA MARCHE ══ -->
+<div class="screen" id="screen-comment">
+  <div class="topbar"><span class="topbar-title">Comment ça marche</span></div>
+  <div class="cmh-tabs">
+    <button class="cmh-tab active" onclick="cmhTab(this,'cmh-visiteur')">Visiteur</button>
+    <button class="cmh-tab" onclick="cmhTab(this,'cmh-edifice')">Édifice</button>
+    <button class="cmh-tab" onclick="cmhTab(this,'cmh-tarifs')">Tarifs</button>
+    <button class="cmh-tab" onclick="cmhTab(this,'cmh-faq')">FAQ</button>
+  </div>
+  <div class="scroll">
+    <div class="cmh-panel active" id="cmh-visiteur">
+      <div class="step-mobile"><div class="step-num">1</div><div class="step-content"><h3>Explorez</h3><p>Parcourez les édifices par type, région ou mot-clé. Des cathédrales aux chapelles de campagne les plus discrètes.</p></div></div>
+      <div class="step-mobile"><div class="step-num">2</div><div class="step-content"><h3>Choisissez</h3><p>Chaque édifice propose plusieurs formules. Sélectionnez votre créneau et réservez en quelques touches.</p></div></div>
+      <div class="step-mobile"><div class="step-num">3</div><div class="step-content"><h3>Vivez</h3><p>Paiement sécurisé. Confirmation par email avec tous les détails pratiques.</p></div></div>
+      <div style="height:.5rem;border-top:.5px solid var(--border);margin:.75rem 0"></div>
+      <div class="arg-card"><h4>Patrimoine rural & confidentiel</h4><p>Chapelles de campagne, prieurés isolés, petites églises romanes autant que les monuments célèbres.</p></div>
+      <div class="arg-card"><h4>Des guides passionnés</h4><p>Curés, historiens locaux, bénévoles — des personnes qui connaissent et aiment leur édifice.</p></div>
+      <div class="arg-card"><h4>Demandes sur-mesure</h4><p>Groupes, PMR, langues étrangères, événements : utilisez la page Demandes spécifiques.</p></div>
+      <div class="cta-box-m"><h3>Prêt à découvrir ?</h3><p>18 édifices vous attendent.</p><button onclick="navTo('home')">Explorer les édifices</button></div>
+    </div>
+    <div class="cmh-panel" id="cmh-edifice">
+      <div class="step-mobile"><div class="step-num">1</div><div class="step-content"><h3>Référencez-vous</h3><p>Formulaire d'inscription : photos, description, visites, tarifs, disponibilités. Validation sous 48h.</p></div></div>
+      <div class="step-mobile"><div class="step-num">2</div><div class="step-content"><h3>Gérez vos visites</h3><p>Créneaux récurrents ou dates spécifiques — journées du patrimoine, visites exceptionnelles.</p></div></div>
+      <div class="step-mobile"><div class="step-num">3</div><div class="step-content"><h3>Encaissez</h3><p>Les fonds sont versés après chaque visite, déduction faite de la commission VIDI.</p></div></div>
+      <div style="height:.5rem;border-top:.5px solid var(--border);margin:.75rem 0"></div>
+      <div class="arg-card"><h4>Visibilité nationale</h4><p>Votre édifice visible partout en France, même sans site web propre.</p></div>
+      <div class="arg-card"><h4>Zéro frais d'entrée</h4><p>Inscription gratuite. Commission uniquement sur les réservations réalisées.</p></div>
+      <div class="arg-card"><h4>Financement du patrimoine</h4><p>Les revenus contribuent à l'entretien de votre édifice.</p></div>
+      <div class="cta-box-m"><h3>Rejoignez VIDI</h3><p>Inscription gratuite, mise en ligne en 48h.</p><button onclick="navTo('inscription')">Référencer mon édifice</button></div>
+    </div>
+    <div class="cmh-panel" id="cmh-tarifs">
+      <p style="font-size:.85rem;color:var(--muted);font-style:italic;margin-bottom:1rem">Aucun abonnement. Commission uniquement sur les réservations réalisées.</p>
+      <div class="tarif-card-m featured"><h3>Pour le visiteur</h3><div class="price">Gratuit <small style="font-size:.78rem;font-family:'Crimson Pro',serif">d'utilisation</small></div><p>Vous payez uniquement la visite</p><ul><li>Recherche et réservation gratuites</li><li>Paiement sécurisé</li><li>Confirmation par email</li><li>Avis vérifiés</li></ul></div>
+      <div class="tarif-card-m"><h3>Édifices & lieux de culte</h3><div class="price">12% <small style="font-size:.78rem;font-family:'Crimson Pro',serif">de commission</small></div><p>Par réservation encaissée</p><ul><li>Inscription gratuite</li><li>Espace gestionnaire complet</li><li>Tableau de bord & stats</li><li>Assistance email</li></ul></div>
+      <div style="background:rgba(201,168,76,.08);border:.5px solid var(--border);border-radius:4px;padding:.85rem;margin-top:.5rem"><p style="font-family:'Cinzel',serif;font-size:.7rem;color:var(--navy);margin-bottom:.3rem">Tarif réduit</p><p style="font-size:.82rem;color:var(--muted)">Chapelles et églises avec visites &lt; 10€ → commission réduite à <strong>8%</strong>.</p></div>
+    </div>
+    <div class="cmh-panel" id="cmh-faq"><div id="faq-list"></div></div>
+  </div>
+</div>
+
+<!-- ══ ÉCRAN DEMANDES ══ -->
+<div class="screen" id="screen-demandes">
+  <div class="topbar"><span class="topbar-title">Demandes spécifiques</span></div>
+  <div class="scroll" style="padding:.85rem">
+    <p style="font-size:.88rem;color:var(--muted);font-style:italic;margin-bottom:1rem">Groupe, PMR, cérémonie, langue étrangère… Réponse sous 48h.</p>
+    <div class="success-msg" id="ds-success">✦ Demande envoyée. Réponse sous 48h. ✦</div>
+    <p style="font-family:'Cinzel',serif;font-size:.68rem;color:var(--navy);margin-bottom:.6rem">Type de demande</p>
+    <div class="ds-types-grid" id="ds-types-grid"></div>
+    <div class="fsec">
+      <div class="fsec-t">Votre projet</div>
+      <div class="fg"><label class="flbl">Édifice souhaité</label><select class="fsel" id="ds-edifice"><option value="">— Flexible —</option></select></div>
+      <div class="frow2" style="gap:.6rem;margin-bottom:.75rem"><div class="fg" style="margin-bottom:0"><label class="flbl">Nom</label><input class="finp" id="ds-nom" placeholder="Prénom Nom"/></div><div class="fg" style="margin-bottom:0"><label class="flbl">Email</label><input class="finp" type="email" id="ds-email" placeholder="email@…"/></div></div>
+      <div class="frow2" style="gap:.6rem;margin-bottom:.75rem"><div class="fg" style="margin-bottom:0"><label class="flbl">Personnes</label><input class="finp" type="number" id="ds-nb" placeholder="ex: 30"/></div><div class="fg" style="margin-bottom:0"><label class="flbl">Date souhaitée</label><input class="finp" type="date" id="ds-date"/></div></div>
+      <div class="fg"><label class="flbl">Décrivez votre projet</label><textarea class="ftxt" id="ds-message" placeholder="Langue, accessibilité, programme, budget…"></textarea></div>
+    </div>
+    <button class="sub-btn" onclick="submitDemande()">✦ Envoyer ma demande ✦</button>
+  </div>
+</div>
+
+<!-- ══ ÉCRAN MON ESPACE ══ -->
+<div class="screen" id="screen-dashboard">
+  <div class="topbar"><span class="topbar-title">Mon espace</span></div>
+  <div class="db-tabs">
+    <button class="db-tab active" onclick="dbTab(this,'db-overview')">Vue d'ensemble</button>
+    <button class="db-tab" onclick="dbTab(this,'db-reservations')">Réservations</button>
+    <button class="db-tab" onclick="dbTab(this,'db-avis-tab')">Avis</button>
+    <button class="db-tab" onclick="dbTab(this,'db-visites')">Mes visites</button>
+    <button class="db-tab" onclick="dbTab(this,'db-profil')">Mon édifice</button>
+  </div>
+  <div class="scroll">
+    <div class="db-panel active" id="db-overview">
+      <p style="font-family:'Cinzel',serif;font-size:.7rem;color:var(--muted);margin-bottom:.75rem">Chapelle Saint-Roch · Avril 2026</p>
+      <div class="kpi-row"><div class="kpi"><div class="kpi-lbl">Réservations</div><div class="kpi-val">23</div><div class="kpi-trend">↑ +18%</div></div><div class="kpi"><div class="kpi-lbl">Visiteurs</div><div class="kpi-val">61</div><div class="kpi-trend">↑ +11%</div></div><div class="kpi"><div class="kpi-lbl">Revenus</div><div class="kpi-val">368 €</div><div class="kpi-trend">↑ +22%</div></div><div class="kpi"><div class="kpi-lbl">Note</div><div class="kpi-val">4,8 ★</div><div class="kpi-trend">→ stable</div></div></div>
+      <p style="font-family:'Cinzel',serif;font-size:.7rem;color:var(--navy);margin-bottom:.5rem">Prochaines réservations</p>
+      <table class="mini-table"><thead><tr><th>Date</th><th>Visite</th><th>Pers.</th><th>Statut</th></tr></thead><tbody>
+        <tr><td>12/04</td><td>Guidée</td><td>4</td><td><span class="status s-ok">Confirmé</span></td></tr>
+        <tr><td>14/04</td><td>Guidée</td><td>2</td><td><span class="status s-att">Attente</span></td></tr>
+        <tr><td>19/04</td><td>Nocturne</td><td>6</td><td><span class="status s-ok">Confirmé</span></td></tr>
+      </tbody></table>
+    </div>
+    <div class="db-panel" id="db-reservations">
+      <p style="font-family:'Cinzel',serif;font-size:.7rem;color:var(--navy);margin-bottom:.75rem">Toutes les réservations</p>
+      <table class="mini-table"><thead><tr><th>Visiteur</th><th>Visite</th><th>Date</th><th>Statut</th></tr></thead><tbody id="reserv-body"></tbody></table>
+    </div>
+    <div class="db-panel" id="db-avis-tab"><div id="db-avis-list"></div></div>
+    <div class="db-panel" id="db-visites">
+      <div id="db-visites-list"></div>
+      <button id="add-visite-btn" onclick="addVisiteForm()" style="width:100%;background:none;border:1px solid var(--gold);color:var(--gold);font-family:'Cinzel',serif;font-size:.68rem;padding:10px;border-radius:3px;cursor:pointer;margin-top:.25rem">+ Ajouter une visite</button>
+      <div id="new-visite-form" style="display:none;margin-top:.85rem">
+        <div class="fsec"><div class="fsec-t">Nouvelle visite</div>
+          <div class="frow2" style="gap:.6rem;margin-bottom:.6rem"><div class="fg" style="margin-bottom:0"><label class="flbl">Nom</label><input class="finp" id="nv-nom" placeholder="ex: Visite du clocher"/></div><div class="fg" style="margin-bottom:0"><label class="flbl">Durée</label><input class="finp" id="nv-duree" placeholder="ex: 1h"/></div></div>
+          <div class="frow2" style="gap:.6rem;margin-bottom:.6rem"><div class="fg" style="margin-bottom:0"><label class="flbl">Adulte (€)</label><input class="finp" type="number" id="nv-prix" placeholder="8"/></div><div class="fg" style="margin-bottom:0"><label class="flbl">Enfant (€)</label><input class="finp" type="number" id="nv-enf" placeholder="5"/></div></div>
+          <div class="fg"><label class="flbl">Description</label><textarea class="ftxt" id="nv-desc" style="min-height:55px" placeholder="Décrivez cette visite…"></textarea></div>
+          <div style="display:flex;gap:.5rem"><button class="fsave-btn" style="flex:1" onclick="saveNewVisite()">Ajouter</button><button onclick="cancelNewVisite()" style="flex:1;background:none;border:.5px solid var(--border);color:var(--muted);font-family:'Cinzel',serif;font-size:.65rem;padding:10px;border-radius:3px;cursor:pointer">Annuler</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="db-panel" id="db-profil">
+      <div class="fsec"><div class="fsec-t">Identité</div>
+        <div class="fg"><label class="flbl">Nom</label><input class="finp" value="Chapelle Saint-Roch de Montbrun"/></div>
+        <div class="frow2" style="gap:.6rem;margin-bottom:.6rem"><div class="fg" style="margin-bottom:0"><label class="flbl">Commune</label><input class="finp" value="Montbrun-les-Bains"/></div><div class="fg" style="margin-bottom:0"><label class="flbl">Département</label><input class="finp" value="Drôme (26)"/></div></div>
+        <div class="fg"><label class="flbl">Description publique</label><textarea class="ftxt">Nichée dans le village médiéval perché de Montbrun-les-Bains, cette chapelle baroque du XVIIe siècle domine les gorges du Toulourenc.</textarea></div>
+      </div>
+      <div class="fsec"><div class="fsec-t">Contact</div>
+        <div class="fg"><label class="flbl">Responsable</label><input class="finp" value="Père Jean-Marie Faure"/></div>
+        <div class="fg"><label class="flbl">Email</label><input class="finp" type="email" value="contact@chapelle-montbrun.fr"/></div>
+      </div>
+      <div class="fsec"><div class="fsec-t">Disponibilités récurrentes</div><div id="db-horaires"></div></div>
+      <div class="fsec">
+        <div class="fsec-t">Dates spécifiques</div>
+        <p style="font-size:.8rem;color:var(--muted);font-style:italic;margin-bottom:.75rem">Dates ponctuelles avec créneaux propres.</p>
+        <div id="dates-specifiques-list"></div>
+        <button onclick="addDateSpec()" style="width:100%;background:none;border:1px solid var(--gold);color:var(--gold);font-family:'Cinzel',serif;font-size:.68rem;padding:10px;border-radius:3px;cursor:pointer;margin-top:.25rem">+ Ajouter une date spécifique</button>
+      </div>
+      <button class="fsave-btn" onclick="saveProfile()">Enregistrer les modifications</button>
+      <p id="saved-msg" style="display:none;text-align:center;font-family:'Cinzel',serif;font-size:.68rem;color:#3a7d44;margin-top:.5rem">✓ Enregistré</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ÉCRAN INSCRIPTION ══ -->
+<div class="screen" id="screen-inscription">
+  <div class="topbar"><span class="topbar-title">Référencer un édifice</span></div>
+  <div class="scroll" style="padding:.85rem">
+    <div class="success-msg" id="success-msg">✦ Demande soumise. Notre équipe vous contacte sous 48h. ✦</div>
+    <div class="fsec"><div class="fsec-t">Informations générales</div>
+      <div class="fg"><label class="flbl">Nom de l'édifice</label><input class="finp" id="fn" placeholder="ex: Chapelle Saint-Roch"/></div>
+      <div class="fg"><label class="flbl">Type</label><select class="fsel"><option>Cathédrale</option><option>Basilique</option><option>Église</option><option selected>Chapelle</option><option>Mosquée</option><option>Synagogue</option><option>Abbaye / Monastère</option><option>Autre</option></select></div>
+      <div class="frow2" style="gap:.6rem;margin-bottom:.6rem"><div class="fg" style="margin-bottom:0"><label class="flbl">Commune</label><input class="finp" placeholder="ex: Vézelay"/></div><div class="fg" style="margin-bottom:0"><label class="flbl">Département</label><input class="finp" placeholder="ex: Yonne (89)"/></div></div>
+      <div class="fg"><label class="flbl">Description</label><textarea class="ftxt" placeholder="Histoire, architecture, ce qui rend votre édifice unique…"></textarea></div>
+    </div>
+    <div class="fsec"><div class="fsec-t">Visites & Tarifs</div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:.5rem;margin-bottom:.5rem"><input class="finp" placeholder="Nom de la visite"/><input class="finp" placeholder="Adulte €"/><input class="finp" placeholder="Enfant €"/></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:.5rem"><input class="finp" placeholder="Visite nocturne"/><input class="finp" placeholder="20 €"/><input class="finp" placeholder="12 €"/></div>
+    </div>
+    <div class="fsec"><div class="fsec-t">Contact</div>
+      <div class="fg"><label class="flbl">Responsable</label><input class="finp" placeholder="Prénom Nom"/></div>
+      <div class="fg"><label class="flbl">Email</label><input class="finp" type="email" placeholder="contact@edifice.fr"/></div>
+      <div class="fg"><label class="flbl">Téléphone</label><input class="finp" type="tel" placeholder="+33 6 …"/></div>
+    </div>
+    <button class="sub-btn" onclick="submitIns()">✦ Soumettre ma demande ✦</button>
+  </div>
+</div>
+
+<!-- ══ BOTTOM NAV ══ -->
+<nav class="bottomnav">
+  <button class="bnav-btn active" id="bn-home" onclick="navTo('home')"><span class="bnav-icon">⛪</span><span class="bnav-lbl">Explorer</span></button>
+  <button class="bnav-btn" id="bn-map" onclick="navTo('map')"><span class="bnav-icon">🗺</span><span class="bnav-lbl">Carte</span></button>
+  <button class="bnav-btn" id="bn-comment" onclick="navTo('comment')"><span class="bnav-icon">ℹ</span><span class="bnav-lbl">Comment</span></button>
+  <button class="bnav-btn" id="bn-demandes" onclick="navTo('demandes');initDemandes()"><span class="bnav-icon">✉</span><span class="bnav-lbl">Demandes</span></button>
+  <button class="bnav-btn" id="bn-dashboard" onclick="navTo('dashboard')"><span class="bnav-icon">☰</span><span class="bnav-lbl">Mon espace</span></button>
+  <button class="bnav-btn" id="bn-inscription" onclick="navTo('inscription')"><span class="bnav-icon">+</span><span class="bnav-lbl">Référencer</span></button>
+</nav>
+
+</div><!-- /shell -->
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+<script>
+// ── IMAGES ───────────────────────────────────────────────────────────────────
+const IMGS = {
+  "chapel": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9InNreSIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxQTI3NDQiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwZDFhMmUiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgZmlsbD0idXJsKCNza3kpIi8+PHJlY3QgeD0iMCIgeT0iMjA4IiB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQyIiBmaWxsPSIjMGQxYTJlIiBvcGFjaXR5PSIuNiIvPjxyZWN0IHg9IjE0NSIgeT0iMTI4IiB3aWR0aD0iMTEwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjMmEzYTVhIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMS4yIi8+PGVsbGlwc2UgY3g9IjI1NSIgY3k9IjE1MyIgcng9IjI4IiByeT0iMzMiIGZpbGw9IiMyYTNhNWEiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PHBvbHlnb24gcG9pbnRzPSIxNDAsMTI4IDIwMCw4OCAyNjAsMTI4IiBmaWxsPSIjMWEyYTQ0IiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMSIvPjxyZWN0IHg9IjE1OCIgeT0iNTgiIHdpZHRoPSIyOCIgaGVpZ2h0PSI3MiIgZmlsbD0iIzFlMmU0YSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48cmVjdCB4PSIxNTAiIHk9IjUzIiB3aWR0aD0iNDQiIGhlaWdodD0iOCIgZmlsbD0iIzFlMmU0YSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9Ii44Ii8+PGVsbGlwc2UgY3g9IjE2NiIgY3k9Ijc3IiByeD0iNiIgcnk9IjgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PGVsbGlwc2UgY3g9IjE4MCIgY3k9Ijc3IiByeD0iNiIgcnk9IjgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PGVsbGlwc2UgY3g9IjE2NiIgY3k9Ijk3IiByeD0iNiIgcnk9IjgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PGVsbGlwc2UgY3g9IjE4MCIgY3k9Ijk3IiByeD0iNiIgcnk9IjgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PHJlY3QgeD0iMTg2IiB5PSIxNjYiIHdpZHRoPSIyOCIgaGVpZ2h0PSI0MiIgZmlsbD0iIzBkMWEyZSIvPjxlbGxpcHNlIGN4PSIyMDAiIGN5PSIxNjYiIHJ4PSIxNCIgcnk9IjciIGZpbGw9IiMwZDFhMmUiLz48bGluZSB4MT0iMjAwIiB5MT0iODYiIHgyPSIyMDAiIHkyPSI3NCIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjIuNSIvPjxsaW5lIHgxPSIxOTMiIHkxPSI4MSIgeDI9IjIwNyIgeTI9IjgxIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMi41Ii8+PHRleHQgeD0iMjAwIiB5PSIyMzciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJHZW9yZ2lhLHNlcmlmIiBmb250LXNpemU9IjEwLjUiIGZpbGw9IiNDOUE4NEMiIGxldHRlci1zcGFjaW5nPSIyLjUiPkNIQVBFTExFPC90ZXh0Pjwvc3ZnPg==",
+  "cathedral": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9InNreSIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxQTI3NDQiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwZDFhMmUiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgZmlsbD0idXJsKCNza3kpIi8+PHJlY3QgeD0iMCIgeT0iMjA1IiB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQ1IiBmaWxsPSIjMGQxYTJlIiBvcGFjaXR5PSIuNSIvPjxyZWN0IHg9IjE1NSIgeT0iOTUiIHdpZHRoPSI5MCIgaGVpZ2h0PSIxMTUiIGZpbGw9IiMyYTNhNWEiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxLjIiLz48cmVjdCB4PSIxMTgiIHk9Ijc1IiB3aWR0aD0iNTUiIGhlaWdodD0iMTM1IiBmaWxsPSIjMjQzMjU5IiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMSIvPjxyZWN0IHg9IjIyNyIgeT0iNzUiIHdpZHRoPSI1NSIgaGVpZ2h0PSIxMzUiIGZpbGw9IiMyNDMyNTkiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PHBvbHlnb24gcG9pbnRzPSIxMTMsNzUgMTQ1LDIyIDE3Nyw3NSIgZmlsbD0iIzFhMmE0NCIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48cG9seWdvbiBwb2ludHM9IjIyMyw3NSAyNTUsMjIgMjg3LDc1IiBmaWxsPSIjMWEyYTQ0IiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMSIvPjxjaXJjbGUgY3g9IjIwMCIgY3k9IjEyNSIgcj0iMjIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48Y2lyY2xlIGN4PSIyMDAiIGN5PSIxMjUiIHI9IjkiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PGxpbmUgeDE9IjE3OCIgeTE9IjEyNSIgeDI9IjIyMiIgeTI9IjEyNSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9Ii44Ii8+PGxpbmUgeDE9IjIwMCIgeTE9IjEwMyIgeDI9IjIwMCIgeTI9IjE0NyIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9Ii44Ii8+PHJlY3QgeD0iMTgyIiB5PSIxNjUiIHdpZHRoPSIzNiIgaGVpZ2h0PSI0NSIgZmlsbD0iIzBkMWEyZSIvPjxlbGxpcHNlIGN4PSIyMDAiIGN5PSIxNjUiIHJ4PSIxOCIgcnk9IjkiIGZpbGw9IiMwZDFhMmUiLz48cmVjdCB4PSIxMjgiIHk9Ijk3IiByeD0iNiIgd2lkdGg9IjEzIiBoZWlnaHQ9IjI2IiBmaWxsPSIjMGQxYTJlIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iLjUiLz48cmVjdCB4PSIxNDUiIHk9Ijk3IiByeD0iNiIgd2lkdGg9IjEzIiBoZWlnaHQ9IjI2IiBmaWxsPSIjMGQxYTJlIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iLjUiLz48cmVjdCB4PSIyNDIiIHk9Ijk3IiByeD0iNiIgd2lkdGg9IjEzIiBoZWlnaHQ9IjI2IiBmaWxsPSIjMGQxYTJlIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iLjUiLz48cmVjdCB4PSIyNTkiIHk9Ijk3IiByeD0iNiIgd2lkdGg9IjEzIiBoZWlnaHQ9IjI2IiBmaWxsPSIjMGQxYTJlIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iLjUiLz48dGV4dCB4PSIyMDAiIHk9IjIzNiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Ikdlb3JnaWEsc2VyaWYiIGZvbnQtc2l6ZT0iMTAuNSIgZmlsbD0iI0M5QTg0QyIgbGV0dGVyLXNwYWNpbmc9IjIiPkNBVEjDiURSQUxFPC90ZXh0Pjwvc3ZnPg==",
+  "abbey": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9InNreSIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxQTI3NDQiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwZDFhMmUiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgZmlsbD0idXJsKCNza3kpIi8+PHJlY3QgeD0iMCIgeT0iMjA2IiB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQ0IiBmaWxsPSIjMGQxYTJlIiBvcGFjaXR5PSIuNSIvPjxyZWN0IHg9Ijk4IiB5PSIxMTgiIHdpZHRoPSIyMDQiIGhlaWdodD0iOTAiIGZpbGw9IiMyYTNhNWEiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxLjIiLz48cG9seWdvbiBwb2ludHM9IjkzLDExOCAyMDAsNzIgMzA3LDExOCIgZmlsbD0iIzFhMmE0NCIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48cmVjdCB4PSIxNzkiIHk9Ijg4IiB3aWR0aD0iNDIiIGhlaWdodD0iMzIiIGZpbGw9IiMxZTJlNGEiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PHBvbHlnb24gcG9pbnRzPSIxNzcsODggMjAwLDYwIDIyMyw4OCIgZmlsbD0iIzE0MWYzNSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48cmVjdCB4PSIxMTAiIHk9IjE0NiIgd2lkdGg9Ijg0IiBoZWlnaHQ9IjUyIiBmaWxsPSIjMGQxYTJlIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iLjgiIG9wYWNpdHk9Ii45Ii8+PGxpbmUgeDE9IjEzMCIgeTE9IjE0NiIgeDI9IjEzMCIgeTI9IjE5OCIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9Ii44IiBvcGFjaXR5PSIuNiIvPjxsaW5lIHgxPSIxNTAiIHkxPSIxNDYiIHgyPSIxNTAiIHkyPSIxOTgiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIuOCIgb3BhY2l0eT0iLjYiLz48bGluZSB4MT0iMTcwIiB5MT0iMTQ2IiB4Mj0iMTcwIiB5Mj0iMTk4IiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iLjgiIG9wYWNpdHk9Ii42Ii8+PGxpbmUgeDE9IjExMCIgeTE9IjE2NyIgeDI9IjE5NCIgeTI9IjE2NyIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9Ii42IiBvcGFjaXR5PSIuNiIvPjxyZWN0IHg9IjIyMCIgeT0iMTM4IiByeD0iNSIgd2lkdGg9IjEzIiBoZWlnaHQ9IjIyIiBmaWxsPSIjMGQxYTJlIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iLjUiLz48cmVjdCB4PSIyNDIiIHk9IjEzOCIgcng9IjUiIHdpZHRoPSIxMyIgaGVpZ2h0PSIyMiIgZmlsbD0iIzBkMWEyZSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9Ii41Ii8+PHJlY3QgeD0iMjY0IiB5PSIxMzgiIHJ4PSI1IiB3aWR0aD0iMTMiIGhlaWdodD0iMjIiIGZpbGw9IiMwZDFhMmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIuNSIvPjx0ZXh0IHg9IjIwMCIgeT0iMjM2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iR2VvcmdpYSxzZXJpZiIgZm9udC1zaXplPSIxMC41IiBmaWxsPSIjQzlBODRDIiBsZXR0ZXItc3BhY2luZz0iMi41Ij5BQkJBWUU8L3RleHQ+PC9zdmc+",
+  "mosque": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9InNreSIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxQTI3NDQiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwZDFhMmUiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgZmlsbD0idXJsKCNza3kpIi8+PHJlY3QgeD0iMCIgeT0iMjA1IiB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQ1IiBmaWxsPSIjMGQxYTJlIiBvcGFjaXR5PSIuNSIvPjxyZWN0IHg9IjEwOCIgeT0iNzgiIHdpZHRoPSIzMiIgaGVpZ2h0PSIxMzIiIGZpbGw9IiMyNDMyNTkiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PGVsbGlwc2UgY3g9IjEyNCIgY3k9Ijc2IiByeD0iMTYiIHJ5PSI5IiBmaWxsPSIjMWUyZTRhIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMSIvPjxyZWN0IHg9IjEwNCIgeT0iMTE4IiB3aWR0aD0iNDAiIGhlaWdodD0iNSIgZmlsbD0iI0M5QTg0QyIgb3BhY2l0eT0iLjUiLz48cGF0aCBkPSJNMTE2LDcwIEE4LDggMCAxLDEgMTMyLDcwIiBmaWxsPSJub25lIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMiIvPjxwb2x5Z29uIHBvaW50cz0iMTMyLDcwIDEzNSw2NCAxMjgsNjMiIGZpbGw9IiNDOUE4NEMiLz48cmVjdCB4PSIxNDgiIHk9IjEzOCIgd2lkdGg9IjE0NCIgaGVpZ2h0PSI3MiIgZmlsbD0iIzJhM2E1YSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEuMiIvPjxlbGxpcHNlIGN4PSIyMjAiIGN5PSIxMzYiIHJ4PSI1MiIgcnk9IjQyIiBmaWxsPSIjMjQzMjU5IiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMS41Ii8+PGVsbGlwc2UgY3g9IjE2MiIgY3k9IjE1MCIgcng9IjIwIiByeT0iMTYiIGZpbGw9IiMxZTJlNGEiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PGVsbGlwc2UgY3g9IjI3OCIgY3k9IjE1MCIgcng9IjIwIiByeT0iMTYiIGZpbGw9IiMxZTJlNGEiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PHJlY3QgeD0iMTk4IiB5PSIxNjYiIHdpZHRoPSI0NCIgaGVpZ2h0PSI0NCIgZmlsbD0iIzBkMWEyZSIvPjxwYXRoIGQ9Ik0xOTgsMTY2IFEyMjAsMTQ0IDI0MiwxNjYiIGZpbGw9IiMwZDFhMmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PHRleHQgeD0iMjE1IiB5PSIyMzciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJHZW9yZ2lhLHNlcmlmIiBmb250LXNpemU9IjEwLjUiIGZpbGw9IiNDOUE4NEMiIGxldHRlci1zcGFjaW5nPSIyLjUiPk1PU1FVw4lFPC90ZXh0Pjwvc3ZnPg==",
+  "synagogue": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9InNreSIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxQTI3NDQiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwZDFhMmUiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgZmlsbD0idXJsKCNza3kpIi8+PHJlY3QgeD0iMCIgeT0iMjA2IiB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQ0IiBmaWxsPSIjMGQxYTJlIiBvcGFjaXR5PSIuNSIvPjxyZWN0IHg9IjEyOCIgeT0iOTgiIHdpZHRoPSIxNDQiIGhlaWdodD0iMTEyIiBmaWxsPSIjMmEzYTVhIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMS4yIi8+PGVsbGlwc2UgY3g9IjIwMCIgY3k9Ijk2IiByeD0iNzIiIHJ5PSIzMiIgZmlsbD0iIzI0MzI1OSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48cmVjdCB4PSIxMTYiIHk9IjEwOCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjEwMiIgZmlsbD0iIzFlMmU0YSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48cmVjdCB4PSIyNTYiIHk9IjEwOCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjEwMiIgZmlsbD0iIzFlMmU0YSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48ZWxsaXBzZSBjeD0iMTMwIiBjeT0iMTA2IiByeD0iMTQiIHJ5PSI4IiBmaWxsPSIjMTQxZjM1IiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMSIvPjxlbGxpcHNlIGN4PSIyNzAiIGN5PSIxMDYiIHJ4PSIxNCIgcnk9IjgiIGZpbGw9IiMxNDFmMzUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PHBvbHlnb24gcG9pbnRzPSIyMDAsMTEyIDIxMSwxMzAgMTg5LDEzMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEuNSIvPjxwb2x5Z29uIHBvaW50cz0iMjAwLDEzNiAxODksMTE4IDIxMSwxMTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48cGF0aCBkPSJNMTg0LDE1MCBRMTg0LDEzNiAyMDAsMTM2IFEyMTYsMTM2IDIxNiwxNTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PHJlY3QgeD0iMTg0IiB5PSIxNTAiIHdpZHRoPSIzMiIgaGVpZ2h0PSIxNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48cmVjdCB4PSIxODMiIHk9IjE2OCIgd2lkdGg9IjM0IiBoZWlnaHQ9IjQyIiBmaWxsPSIjMGQxYTJlIi8+PHBhdGggZD0iTTE4MywxNjggUTIwMCwxNTIgMjE3LDE2OCIgZmlsbD0iIzBkMWEyZSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48dGV4dCB4PSIyMDAiIHk9IjIzNyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Ikdlb3JnaWEsc2VyaWYiIGZvbnQtc2l6ZT0iMTAuNSIgZmlsbD0iI0M5QTg0QyIgbGV0dGVyLXNwYWNpbmc9IjIiPlNZTkFHT0dVRTwvdGV4dD48L3N2Zz4=",
+  "church": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9InNreSIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxQTI3NDQiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwZDFhMmUiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgZmlsbD0idXJsKCNza3kpIi8+PGVsbGlwc2UgY3g9IjIwMCIgY3k9IjI0MCIgcng9IjE5NSIgcnk9IjU1IiBmaWxsPSIjMGQxYTJlIiBvcGFjaXR5PSIuNjUiLz48cmVjdCB4PSIxNTMiIHk9IjEyOCIgd2lkdGg9Ijk0IiBoZWlnaHQ9Ijg4IiBmaWxsPSIjMmEzYTVhIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMS4yIi8+PGVsbGlwc2UgY3g9IjI1OCIgY3k9IjE1NSIgcng9IjI3IiByeT0iMzQiIGZpbGw9IiMyYTNhNWEiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PHBvbHlnb24gcG9pbnRzPSIxNDgsMTI4IDIwMCw5NCAyNTIsMTI4IiBmaWxsPSIjMWEyYTQ0IiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMSIvPjxyZWN0IHg9IjE1NiIgeT0iNjYiIHdpZHRoPSI0MiIgaGVpZ2h0PSI2NCIgZmlsbD0iIzFlMmU0YSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48cG9seWdvbiBwb2ludHM9IjE1Miw2NiAxNzcsMzYgMjA0LDY2IiBmaWxsPSIjMTQxZjM1IiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMSIvPjxlbGxpcHNlIGN4PSIxNjciIGN5PSI4NiIgcng9IjciIHJ5PSIxMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48ZWxsaXBzZSBjeD0iMTgyIiBjeT0iODYiIHJ4PSI3IiByeT0iMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIxIi8+PGVsbGlwc2UgY3g9IjE2NyIgY3k9IjEwOCIgcng9IjciIHJ5PSIxMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjQzlBODRDIiBzdHJva2Utd2lkdGg9IjEiLz48ZWxsaXBzZSBjeD0iMTgyIiBjeT0iMTA4IiByeD0iNyIgcnk9IjEwIiBmaWxsPSJub25lIiBzdHJva2U9IiNDOUE4NEMiIHN0cm9rZS13aWR0aD0iMSIvPjxyZWN0IHg9IjE4NiIgeT0iMTcwIiB3aWR0aD0iMjgiIGhlaWdodD0iNDYiIGZpbGw9IiMwZDFhMmUiLz48ZWxsaXBzZSBjeD0iMjAwIiBjeT0iMTcwIiByeD0iMTQiIHJ5PSI3IiBmaWxsPSIjMGQxYTJlIi8+PHJlY3QgeD0iMjMwIiB5PSIxNDciIHJ4PSI3IiB3aWR0aD0iMTYiIGhlaWdodD0iMjQiIGZpbGw9IiMwZDFhMmUiIHN0cm9rZT0iI0M5QTg0QyIgc3Ryb2tlLXdpZHRoPSIuOCIvPjx0ZXh0IHg9IjIwMCIgeT0iMjQyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iR2VvcmdpYSxzZXJpZiIgZm9udC1zaXplPSIxMC41IiBmaWxsPSIjQzlBODRDIiBsZXR0ZXItc3BhY2luZz0iMi41Ij7DiUdMSVNFPC90ZXh0Pjwvc3ZnPg==",
+};
+function getTypeImg(t){ return IMGS[t]||IMGS.church; }
+
+// ── DATA ─────────────────────────────────────────────────────────────────────
+const DATA = [
+  {id:1,img:"https://images.unsplash.com/photo-1467533003447-e295ff1b0435?w=600&q=80",name:"Chapelle Saint-Roch de Montbrun",loc:"Montbrun-les-Bains, Drôme",type:"chapel",campagne:true,lat:44.178,lng:5.434,desc:"Nichée dans le village médiéval perché de Montbrun-les-Bains, cette chapelle baroque du XVIIe siècle domine les gorges du Toulourenc. Ses fresques et son clocher à peigne en font un joyau discret du patrimoine drômois.",price:6,rating:4.8,reviews:43,annee:"1642",langues:"FR",visits:[{name:"Visite guidée",desc:"Fresques et histoire locale",price:6,dur:"45min"},{name:"Visite nocturne",desc:"Lumières et contes",price:10,dur:"1h"}],horaires:["10h00","14h30","16h00"],avis:[{auteur:"Marie-Hélène",note:5,date:"02/04/2026",txt:"Un lieu magique. Guide passionné."},{auteur:"Gilles F.",note:5,date:"18/03/2026",txt:"On s'y sent comme dans un autre siècle."}]},
+  {id:2,img:"https://images.unsplash.com/photo-1548013146-72479768bada?w=600&q=80",name:"Église Saint-Martin de Cruas",loc:"Cruas, Ardèche",type:"church",campagne:true,lat:44.658,lng:4.763,desc:"Ancienne abbatiale bénédictine du XIe siècle construite en tuf volcanique ardéchois. Sa crypte préromane et ses chapiteaux sculptés sont parmi les plus beaux exemples de l'art roman de la région.",price:5,rating:4.7,reviews:61,annee:"1050",langues:"FR",visits:[{name:"Visite de la crypte",desc:"Art pré-roman et symbolique",price:5,dur:"1h"},{name:"Visite complète",desc:"Abbatiale, crypte et cloître",price:8,dur:"1h30"}],horaires:["09h30","11h00","14h00","15h30"],avis:[{auteur:"Patrick D.",note:5,date:"05/04/2026",txt:"La crypte est saisissante."},{auteur:"Sylvie M.",note:4,date:"28/03/2026",txt:"Très belle, bien peu connue."}]},
+  {id:3,img:"https://images.unsplash.com/photo-1580137189272-c9379f8864fd?w=600&q=80",name:"Chapelle Notre-Dame de Centeilles",loc:"Siran, Hérault",type:"chapel",campagne:true,lat:43.32,lng:2.88,desc:"Perdue dans les garrigues, cette chapelle du XIIe siècle abrite des fresques gothiques d'une rare beauté redécouvertes au XXe siècle. Un trésor confidentiel du Minervois.",price:4,rating:4.9,reviews:38,annee:"1180",langues:"FR",visits:[{name:"Visite des fresques",desc:"Art gothique rural",price:4,dur:"45min"}],horaires:["10h00","14h30","16h00"],avis:[{auteur:"Brigitte L.",note:5,date:"06/04/2026",txt:"Les fresques sont extraordinaires."}]},
+  {id:4,img:"https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80",name:"Prieuré de Serrabone",loc:"Pyrénées-Orientales",type:"church",campagne:true,lat:42.62,lng:2.67,desc:"Isolé dans les reliefs du Fenouillèdes, ce prieuré roman du XIe siècle abrite une tribune de marbre rose sculptée d'une richesse exceptionnelle.",price:5,rating:4.6,reviews:134,annee:"1080",langues:"FR · CA",visits:[{name:"Visite du prieuré",desc:"Tribune et cloître en marbre rose",price:5,dur:"45min"},{name:"Visite commentée",desc:"Art roman catalan",price:9,dur:"1h30"}],horaires:["10h00","14h00","16h00"],avis:[{auteur:"Pierre C.",note:5,date:"02/04/2026",txt:"Richesse insoupçonnée."},{auteur:"Rosa T.",note:4,date:"29/03/2026",txt:"Ça vaut le détour."}]},
+  {id:5,img:"https://images.unsplash.com/photo-1510510073753-8fc30c0d9a28?w=600&q=80",name:"Église de Besse-en-Chandesse",loc:"Besse, Auvergne",type:"church",campagne:true,lat:45.516,lng:2.847,desc:"Au cœur d'un village médiéval d'Auvergne, cette église romane du XIIe siècle abrite une Vierge Noire vénérée depuis des siècles.",price:4,rating:4.5,reviews:97,annee:"1150",langues:"FR",visits:[{name:"Visite libre",desc:"Découverte en autonomie",price:0,dur:"30min"},{name:"Visite guidée",desc:"Vierge noire et art roman",price:4,dur:"45min"}],horaires:["09h00","11h00","14h00","16h00"],avis:[{auteur:"Monique B.",note:5,date:"31/03/2026",txt:"Hors du temps."},{auteur:"Henri R.",note:4,date:"22/03/2026",txt:"Très jolie."}]},
+  {id:6,img:"https://images.unsplash.com/photo-1519677100203-a0e668c92439?w=600&q=80",name:"Chapelle Saint-Michel d'Aiguilhe",loc:"Le Puy-en-Velay, Haute-Loire",type:"chapel",campagne:true,lat:45.044,lng:3.882,desc:"Juchée à 82 mètres sur un piton volcanique, accessible par 268 marches. Une vision saisissante du Massif Central.",price:4,rating:4.9,reviews:412,annee:"962",langues:"FR · EN",visits:[{name:"Visite libre",desc:"Montée et découverte",price:4,dur:"30min"},{name:"Visite guidée",desc:"Histoire et symbolique",price:8,dur:"1h"}],horaires:["09h00","10h00","11h00","14h00","15h00","16h00"],avis:[{auteur:"François L.",note:5,date:"06/04/2026",txt:"À couper le souffle !"},{auteur:"Anna S.",note:5,date:"03/04/2026",txt:"Hors du temps."}]},
+  {id:7,img:"https://images.unsplash.com/photo-1560184897-502a475f7a0d?w=600&q=80",name:"Église Saint-Nectaire",loc:"Saint-Nectaire, Auvergne",type:"church",campagne:true,lat:45.583,lng:2.997,desc:"Perchée sur un puy volcanique, cette église romane du XIIe siècle est l'une des plus belles d'Auvergne.",price:6,rating:4.7,reviews:289,annee:"1160",langues:"FR · EN",visits:[{name:"Visite guidée",desc:"Chapiteaux et crypte romane",price:6,dur:"1h"},{name:"Visite art roman",desc:"L'art roman en Auvergne",price:10,dur:"1h30"}],horaires:["10h00","14h00","16h00"],avis:[{auteur:"Céline V.",note:5,date:"01/04/2026",txt:"Un bijou roman."},{auteur:"Michel D.",note:4,date:"25/03/2026",txt:"Très belle."}]},
+  {id:8,img:"https://images.unsplash.com/photo-1467533003447-e295ff1b0435?w=600&q=80",name:"Chapelle de Ronchamp",loc:"Ronchamp, Franche-Comté",type:"chapel",campagne:true,lat:47.704,lng:6.622,desc:"Chef-d'œuvre de Le Corbusier classé UNESCO. Ses formes organiques et sa lumière intérieure sont saisissantes.",price:9,rating:4.9,reviews:578,annee:"1955",langues:"FR · EN · DE",visits:[{name:"Visite architecturale",desc:"Le Corbusier et la lumière sacrée",price:9,dur:"1h15"},{name:"Visite approfondie",desc:"Avec carnet de croquis",price:15,dur:"2h"}],horaires:["09h30","11h00","14h00","15h30"],avis:[{auteur:"Hélène M.",note:5,date:"28/03/2026",txt:"Lumière quasi-mystique."}]},
+  {id:9,img:"https://images.unsplash.com/photo-1569682840513-9e5e08e54c41?w=600&q=80",name:"Prieuré de Souvigny",loc:"Souvigny, Allier",type:"church",campagne:true,lat:46.533,lng:3.19,desc:"Surnommée la Saint-Denis bourbonnaise, cette ancienne abbaye clunisienne du Xe siècle est le panthéon des ducs de Bourbon.",price:5,rating:4.6,reviews:78,annee:"920",langues:"FR",visits:[{name:"Visite guidée",desc:"Gisants et histoire des Bourbons",price:5,dur:"1h"}],horaires:["10h00","14h00","15h30"],avis:[{auteur:"Alain P.",note:5,date:"04/04/2026",txt:"Méconnu mais fascinant."}]},
+  {id:10,img:"https://images.unsplash.com/photo-1548691038-82d17f07c82c?w=600&q=80",name:"Église abbatiale de Vézelay",loc:"Vézelay, Bourgogne",type:"church",campagne:true,lat:47.465,lng:3.742,desc:"Classée UNESCO, chef-d'œuvre de l'art roman bourguignon. Son tympan sculpté est l'un des plus beaux de France.",price:6,rating:4.9,reviews:892,annee:"1120",langues:"FR · EN · DE",visits:[{name:"Visite guidée",desc:"Narthex, tympan et lumière de solstice",price:6,dur:"1h"},{name:"Chemin des pèlerins",desc:"Sur les traces des jacquaires",price:12,dur:"2h"}],horaires:["09h00","10h30","14h00","15h30"],avis:[{auteur:"Béatrice L.",note:5,date:"07/04/2026",txt:"Lumière inoubliable."},{auteur:"James H.",note:5,date:"03/04/2026",txt:"Finest Romanesque art."}]},
+  {id:11,img:"https://images.unsplash.com/photo-1590736704728-f4730bb30770?w=600&q=80",name:"Abbaye de Sénanque",loc:"Gordes, Provence",type:"abbey",campagne:false,lat:43.926,lng:5.188,desc:"Nichée dans un vallon du Luberon entouré de lavande, l'abbaye cistercienne de Sénanque est l'un des panoramas les plus photographiés de Provence.",price:7,rating:4.8,reviews:634,annee:"1148",langues:"FR · EN",visits:[{name:"Visite de l'abbaye",desc:"Cloître et église cistercienne",price:7,dur:"45min"},{name:"Visite avec les moines",desc:"Rencontre et offices",price:15,dur:"2h"}],horaires:["10h00","11h00","14h30","16h00"],avis:[{auteur:"Nathalie P.",note:5,date:"05/04/2026",txt:"Magique."},{auteur:"Peter W.",note:5,date:"02/04/2026",txt:"Timeless."}]},
+  {id:12,img:"https://images.unsplash.com/photo-1570939274717-7eda259b50ed?w=600&q=80",name:"Abbaye de Fontenay",loc:"Marmagne, Bourgogne",type:"abbey",campagne:false,lat:47.636,lng:4.397,desc:"La mieux conservée des abbayes cisterciennes médiévales d'Europe, classée UNESCO. Fondée par Saint Bernard en 1118.",price:11,rating:4.8,reviews:423,annee:"1118",langues:"FR · EN",visits:[{name:"Visite complète",desc:"Église, cloître, forge médiévale",price:11,dur:"1h30"},{name:"Audioguidée",desc:"À votre rythme",price:8,dur:"libre"}],horaires:["10h00","11h30","14h00","15h30"],avis:[{auteur:"Laurent P.",note:5,date:"05/04/2026",txt:"La plus intacte que j'aie visitée."},{auteur:"Claire D.",note:5,date:"01/04/2026",txt:"Paix extraordinaire."}]},
+  {id:13,img:"https://images.unsplash.com/photo-1564769662533-4f00a87b4056?w=600&q=80",name:"Grande Mosquée de Paris",loc:"Paris, Île-de-France",type:"mosque",campagne:false,lat:48.843,lng:2.356,desc:"Fondée en 1926, la Grande Mosquée de Paris est un chef-d'œuvre hispano-mauresque. Ses patios et jardins offrent une sérénité unique.",price:3,rating:4.7,reviews:891,annee:"1926",langues:"FR · EN · AR",visits:[{name:"Visite libre",desc:"Espaces ouverts",price:3,dur:"45min"},{name:"Visite guidée",desc:"Histoire et architecture",price:9,dur:"1h15"}],horaires:["09h00","11h00","14h00","16h00"],avis:[{auteur:"Sophie M.",note:5,date:"05/04/2026",txt:"Beauté apaisante."},{auteur:"Ahmed K.",note:4,date:"01/04/2026",txt:"Belle visite."}]},
+  {id:14,img:"https://images.unsplash.com/photo-1473177104440-ffee2f376098?w=600&q=80",name:"Grande Synagogue de la Victoire",loc:"Paris, Île-de-France",type:"synagogue",campagne:false,lat:48.876,lng:2.343,desc:"Inaugurée en 1874, la plus grande synagogue de Paris. Son architecture intérieure grandiose est d'une beauté remarquable.",price:10,rating:4.8,reviews:156,annee:"1874",langues:"FR · EN · HE",visits:[{name:"Visite patrimoniale",desc:"Architecture et histoire",price:10,dur:"1h"}],horaires:["10h00","14h00","16h00"],avis:[{auteur:"David L.",note:5,date:"02/04/2026",txt:"Lieu chargé d'histoire."}]},
+  {id:15,img:"https://images.unsplash.com/photo-1508009603885-50cf7c8dd0d5?w=600&q=80",name:"Abbaye du Mont Saint-Michel",loc:"Normandie",type:"abbey",campagne:false,lat:48.636,lng:-1.511,desc:"Surgissant des eaux de sa baie, le Mont Saint-Michel fascine depuis le VIIIe siècle. Son abbaye bénédictine est l'un des sites les plus emblématiques de France.",price:18,rating:5.0,reviews:2147,annee:"966",langues:"FR · EN · DE · ES · IT",visits:[{name:"Visite de l'abbaye",desc:"Cloître, réfectoire, salle des chevaliers",price:18,dur:"2h"},{name:"Visite nocturne",desc:"Son et lumière",price:28,dur:"2h30"},{name:"Visite VIP",desc:"Accès zones fermées",price:180,dur:"3h"}],horaires:["09h00","11h00","14h00","16h30"],avis:[{auteur:"Isabelle F.",note:5,date:"06/04/2026",txt:"Grandiose."},{auteur:"Thomas B.",note:5,date:"04/04/2026",txt:"Chef-d'œuvre."}]},
+  {id:16,img:"https://images.unsplash.com/photo-1587974928442-77dc3e0dba72?w=600&q=80",name:"Cathédrale de Strasbourg",loc:"Strasbourg, Grand Est",type:"cathedral",campagne:false,lat:48.582,lng:7.751,desc:"Pendant six siècles la plus haute du monde, sa façade gothique flamboyante en grès rose d'Alsace est une dentelle de pierre extraordinaire.",price:12,rating:4.9,reviews:1203,annee:"1015",langues:"FR · EN · DE",visits:[{name:"Visite guidée",desc:"Façade, nef et horloge astronomique",price:12,dur:"1h30"},{name:"Montée en plateforme",desc:"Vue sur l'Alsace",price:6,dur:"45min"}],horaires:["09h30","11h00","14h00","15h30","17h00"],avis:[{auteur:"Lucie R.",note:5,date:"07/04/2026",txt:"Époustouflante."},{auteur:"Klaus M.",note:5,date:"31/03/2026",txt:"La plus belle que j'aie vue."}]},
+  {id:17,img:"https://images.unsplash.com/photo-1520637836862-4d197d17c38a?w=600&q=80",name:"Basilique Notre-Dame de Fourvière",loc:"Lyon, Auvergne-Rhône-Alpes",type:"cathedral",campagne:false,lat:45.762,lng:4.822,desc:"Dominant la colline lyonnaise, cette basilique romano-byzantine du XIXe siècle fascine par ses mosaïques et son panorama sur Lyon.",price:14,rating:4.9,reviews:312,annee:"1872",langues:"FR · EN · ES",visits:[{name:"Visite guidée classique",desc:"Tour complet",price:14,dur:"1h30"},{name:"Visite nocturne",desc:"Lumières et mystère",price:22,dur:"2h"}],horaires:["09h00","10h30","14h00","15h30","17h00"],avis:[{auteur:"Marie T.",note:5,date:"03/04/2026",txt:"Inoubliable."},{auteur:"Jean-Paul R.",note:5,date:"28/03/2026",txt:"Vue splendide."}]},
+  {id:18,img:"https://images.unsplash.com/photo-1573455494060-c5595004fb6c?w=600&q=80",name:"Cathédrale Saint-Jean de Lyon",loc:"Lyon, Auvergne-Rhône-Alpes",type:"cathedral",campagne:false,lat:45.759,lng:4.827,desc:"Cathédrale gothique du XIIe au XVe siècle, elle abrite l'une des plus belles horloges astronomiques du monde.",price:0,rating:4.7,reviews:667,annee:"1180",langues:"FR · EN",visits:[{name:"Visite libre",desc:"Nef et vitraux médiévaux",price:0,dur:"libre"},{name:"Visite guidée",desc:"Horloge astronomique",price:8,dur:"1h"}],horaires:["10h00","11h30","14h00","15h30","17h00"],avis:[{auteur:"Charlotte B.",note:5,date:"06/04/2026",txt:"L'horloge, c'est magique."},{auteur:"Pierre-Yves M.",note:4,date:"02/04/2026",txt:"Belle et bien restaurée."}]}
+];
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let curFilter='all', curEdit=null, selVisit=null, selStar=0, leafletMap=null;
+let visitesDb=[{id:1,name:"Visite guidée",desc:"Fresques et histoire",price:6,priceEnf:4,dur:"45min",active:true},{id:2,name:"Visite nocturne",desc:"Lumières et contes",price:10,priceEnf:7,dur:"1h",active:true}];
+let nextVId=3, dsCounter=0, dsDone=false;
+
+// ── NAV ──────────────────────────────────────────────────────────────────────
+function navTo(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  const bn=document.getElementById('bn-'+name);
+  if(bn) bn.classList.add('active');
+  if(name==='map') setTimeout(initMap,150);
+}
+
+// ── FILTERS ──────────────────────────────────────────────────────────────────
+function setF(btn,f){
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active'); curFilter=f; applyFilters();
+}
+function typeLabel(t){return{cathedral:'Cathédrale',mosque:'Mosquée',synagogue:'Synagogue',abbey:'Abbaye',chapel:'Chapelle',church:'Église'}[t]||t;}
+function applyFilters(){
+  const q=(document.getElementById('sinput').value||'').toLowerCase();
+  const d=DATA.filter(e=>(curFilter==='all'||e.type===curFilter||(curFilter==='campagne'&&e.campagne))&&(!q||e.name.toLowerCase().includes(q)||e.loc.toLowerCase().includes(q)));
+  renderCards(d);
+  document.getElementById('count-lbl').textContent='— '+d.length+' lieu'+(d.length>1?'x':'');
+}
+
+// ── CARDS ────────────────────────────────────────────────────────────────────
+function renderCards(data){
+  const g=document.getElementById('cards-list'); g.innerHTML='';
+  if(!data.length){g.innerHTML='<p style="padding:1.5rem;color:var(--muted);font-style:italic">Aucun résultat.</p>';return;}
+  data.forEach(e=>{
+    const d=document.createElement('div'); d.className='card'; d.style.cursor='pointer';
+    d.innerHTML=`<div class="card-img-wrap"><img src="${e.img||getTypeImg(e.type)}" alt="${e.name}" crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy" onload="this.style.opacity=1" onerror="this.src=getTypeImg(e.type)" style="opacity:0;transition:opacity .4s"/></div>
+    <div class="card-body">
+      <div class="card-badges">
+        <span class="badge badge-type">${typeLabel(e.type)}</span>
+        ${e.campagne?'<span class="badge badge-camp">Campagne</span>':''}
+      </div>
+      <div class="card-name">${e.name}</div>
+      <div class="card-loc">${e.loc}</div>
+      <div class="card-foot">
+        <div class="card-price">${e.price===0?'Gratuit':'Dès '+e.price+' €'}</div>
+        <div class="card-stars">★ ${e.rating} (${e.reviews})</div>
+      </div>
+    </div>`;
+    d.addEventListener('click',()=>showDetail(e.id)); g.appendChild(d);
+  });
+}
+
+// ── DETAIL ───────────────────────────────────────────────────────────────────
+function showDetail(id){
+  const e=DATA.find(x=>x.id===id); if(!e) return; curEdit=e; selVisit=null;
+  const di=document.getElementById('det-img');di.style.opacity=0;di.onload=()=>di.style.opacity=1;di.onerror=()=>{di.src=getTypeImg(e.type);di.style.opacity=1;};di.src=e.img||getTypeImg(e.type);
+  document.getElementById('det-name').textContent=e.name;
+  document.getElementById('det-loc').textContent=e.loc+' · '+typeLabel(e.type);
+  document.getElementById('det-topbar-title').textContent=e.name.length>22?e.name.substring(0,20)+'…':e.name;
+  document.getElementById('det-desc').textContent=e.desc;
+  const vl=document.getElementById('visits-list'); vl.innerHTML='';
+  e.visits.forEach((v,i)=>{
+    const d=document.createElement('div'); d.className='visit-item';
+    d.innerHTML=`<div><div class="v-name">${v.name}</div><div class="v-desc">${v.desc} · ${v.dur}</div></div>
+    <div style="text-align:right"><div class="v-price">${v.price===0?'Gratuit':v.price+' €'}</div><button class="v-btn">Choisir</button></div>`;
+    d.addEventListener('click',()=>selectVisit(i)); vl.appendChild(d);
+  });
+  document.getElementById('bk-time').innerHTML=e.horaires.map(h=>`<option>${h}</option>`).join('');
+  document.getElementById('bk-sel').textContent='Sélectionnez une visite ci-dessus';
+  document.getElementById('bk-total').textContent='—';
+  document.getElementById('det-infos').innerHTML=`
+    <div class="det-info-item"><strong>Construit en</strong>${e.annee}</div>
+    <div class="det-info-item"><strong>Note</strong>★ ${e.rating} (${e.reviews})</div>
+    <div class="det-info-item"><strong>Langues</strong>${e.langues}</div>
+    ${e.campagne?'<div class="det-info-item"><strong>Catégorie</strong>🌿 Campagne</div>':''}`;
+  renderAvis(e);
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('bk-date').min=today; document.getElementById('bk-date').value=today;
+  document.getElementById('detail-scroll').scrollTop=0;
+  navTo('detail');
+}
+function selectVisit(i){
+  if(!curEdit) return; selVisit=curEdit.visits[i];
+  document.querySelectorAll('.visit-item').forEach((el,j)=>el.classList.toggle('sel',j===i));
+  document.getElementById('bk-sel').textContent=selVisit.name;
+  updateTotal();
+}
+function updateTotal(){if(!selVisit) return; const p=parseInt(document.getElementById('bk-pax').value)||2; document.getElementById('bk-total').textContent=selVisit.price===0?'Gratuit':(selVisit.price*Math.min(p,4))+' €';}
+function doReserv(){if(!selVisit){alert('Sélectionnez une visite.');return;} const d=document.getElementById('bk-date').value; if(!d){alert('Choisissez une date.');return;} alert('✦ Réservation confirmée !\n\n'+curEdit.name+'\n'+selVisit.name+'\nLe '+d);}
+function goToDemande(){initDemandes();if(curEdit)document.getElementById('ds-edifice').value=curEdit.name;navTo('demandes');}
+
+// ── AVIS ─────────────────────────────────────────────────────────────────────
+function renderAvis(e){const al=document.getElementById('avis-list');al.innerHTML='';(e.avis||[]).forEach(a=>{al.innerHTML+=`<div class="avis-item"><div class="avis-top"><span class="avis-auteur">${a.auteur}</span><span class="avis-date">${a.date}</span></div><div class="avis-stars">${'★'.repeat(a.note)}${'☆'.repeat(5-a.note)}</div><div class="avis-text">${a.txt}</div></div>`;});}
+function setStar(n){selStar=n;document.querySelectorAll('.star-btn').forEach((b,i)=>b.classList.toggle('on',i<n));}
+function submitAvis(){const nom=document.getElementById('avis-nom').value.trim();const txt=document.getElementById('avis-txt').value.trim();if(!nom||!txt||!selStar){alert('Renseignez prénom, note et commentaire.');return;}const today=new Date().toLocaleDateString('fr-FR');curEdit.avis.unshift({auteur:nom,note:selStar,date:today,txt});renderAvis(curEdit);document.getElementById('avis-nom').value='';document.getElementById('avis-txt').value='';setStar(0);}
+
+// ── MAP ──────────────────────────────────────────────────────────────────────
+function initMap(){
+  if(leafletMap){leafletMap.invalidateSize();return;}
+  leafletMap=L.map('leaflet-map',{zoomControl:true}).setView([46.5,2.5],5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(leafletMap);
+  const colors={cathedral:'#C9A84C',mosque:'#4A7C9E',synagogue:'#8E6BAA',abbey:'#6B8E6B',chapel:'#9E6B6B',church:'#7A6B8E'};
+  const ml=document.getElementById('map-list'); ml.innerHTML='';
+  DATA.forEach(e=>{
+    const m=L.circleMarker([e.lat,e.lng],{radius:e.campagne?7:9,fillColor:colors[e.type]||'#888',color:'#fff',weight:2,fillOpacity:1}).addTo(leafletMap).bindPopup(`<strong>${e.name}</strong><br>${e.loc}`);
+    m.on('click',()=>showDetail(e.id));
+    const mc=document.createElement('div'); mc.className='card'; mc.style.cssText='cursor:pointer;margin-bottom:.6rem;';
+    mc.innerHTML=`<div class="card-img-wrap" style="width:70px"><img src="${e.img||getTypeImg(e.type)}" alt="" crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy" onload="this.style.opacity=1" onerror="this.src=getTypeImg(e.type)" style="opacity:0;transition:opacity .4s"/></div><div class="card-body"><div class="card-name">${e.name}</div><div class="card-loc">${e.loc}${e.campagne?' 🌿':''}</div><div class="card-price" style="font-family:'Cinzel',serif;color:var(--gold);font-size:.8rem">★ ${e.rating} · ${e.price===0?'Gratuit':'Dès '+e.price+' €'}</div></div>`;
+    mc.addEventListener('click',()=>{leafletMap.setView([e.lat,e.lng],10);m.openPopup();});
+    ml.appendChild(mc);
+  });
+}
+
+// ── DEMANDES ─────────────────────────────────────────────────────────────────
+const DS_TYPES=[{icon:'🏫',name:'Groupe scolaire',desc:'Classe, sortie péda.'},{icon:'👥',name:'Groupe adultes',desc:'Association, club'},{icon:'♿',name:'PMR',desc:'Besoins spécifiques'},{icon:'🌍',name:'Langue étrangère',desc:'EN, DE, ES…'},{icon:'🔒',name:'Privatisée',desc:'Réservation exclusive'},{icon:'🎵',name:'Événement',desc:'Concert, cérémonie'}];
+function initDemandes(){
+  if(dsDone) return; dsDone=true;
+  const g=document.getElementById('ds-types-grid');
+  DS_TYPES.forEach(t=>{const d=document.createElement('div');d.className='ds-type-card';d.innerHTML=`<div class="ds-type-icon">${t.icon}</div><div class="ds-type-name">${t.name}</div><div class="ds-type-desc">${t.desc}</div>`;d.addEventListener('click',()=>{document.querySelectorAll('.ds-type-card').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');});g.appendChild(d);});
+  const sel=document.getElementById('ds-edifice');DATA.forEach(e=>{const o=document.createElement('option');o.value=e.name;o.textContent=e.name;sel.appendChild(o);});
+}
+function submitDemande(){const nom=document.getElementById('ds-nom').value.trim();const email=document.getElementById('ds-email').value.trim();const msg=document.getElementById('ds-message').value.trim();if(!nom||!email||!msg){alert('Renseignez nom, email et description.');return;}const s=document.getElementById('ds-success');s.style.display='block';s.scrollIntoView({behavior:'smooth'});}
+
+// ── DASHBOARD ────────────────────────────────────────────────────────────────
+function dbTab(btn,id){document.querySelectorAll('.db-tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.db-panel').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='db-reservations')renderReservations();if(id==='db-avis-tab')renderDbAvis();if(id==='db-visites')renderDbVisites();if(id==='db-profil')buildHoraires('db-horaires');}
+const RESERVATIONS=[{visiteur:'Sophie M.',visite:'Guidée',date:'12/04',pers:4,montant:'24 €',status:'ok'},{visiteur:'Jean Dupont',visite:'Guidée',date:'14/04',pers:2,montant:'12 €',status:'att'},{visiteur:'Clara B.',visite:'Nocturne',date:'19/04',pers:6,montant:'60 €',status:'ok'},{visiteur:'Groupe paroisse',visite:'Guidée',date:'26/04',pers:12,montant:'72 €',status:'ok'},{visiteur:'Pierre L.',visite:'Nocturne',date:'05/04',pers:2,montant:'20 €',status:'ann'}];
+function renderReservations(){document.getElementById('reserv-body').innerHTML=RESERVATIONS.map(r=>`<tr><td>${r.visiteur}</td><td>${r.visite}</td><td>${r.date}</td><td><span class="status s-${r.status}">${r.status==='ok'?'Confirmé':r.status==='att'?'Attente':'Annulé'}</span></td></tr>`).join('');}
+function renderDbAvis(){document.getElementById('db-avis-list').innerHTML=(DATA[0].avis||[]).map(a=>`<div class="avis-item"><div class="avis-top"><span class="avis-auteur">${a.auteur}</span><span class="avis-date">${a.date}</span></div><div class="avis-stars">${'★'.repeat(a.note)}${'☆'.repeat(5-a.note)}</div><div class="avis-text">${a.txt}</div></div>`).join('');}
+function renderDbVisites(){
+  const l=document.getElementById('db-visites-list');l.innerHTML='';
+  visitesDb.forEach(v=>{
+    const d=document.createElement('div');d.className='db-visit-item';d.id='dv-'+v.id;
+    d.innerHTML=`<div class="db-visit-name">${v.name}${!v.active?' <span style="font-size:.62rem;color:var(--muted)">(désactivée)</span>':''}</div><div class="db-visit-sub">${v.desc} · ${v.dur} · ${v.price}€ adulte</div><div class="db-visit-actions"><button class="db-v-btn gold" onclick="toggleEditV(${v.id})">Modifier</button><button class="db-v-btn" onclick="toggleActiveV(${v.id})">${v.active?'Désactiver':'Réactiver'}</button></div><div class="db-visit-edit" id="dve-${v.id}"><div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.5rem"><div><label class="flbl">Nom</label><input class="finp" id="dven-${v.id}" value="${v.name}"/></div><div><label class="flbl">Durée</label><input class="finp" id="dved-${v.id}" value="${v.dur}"/></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.5rem"><div><label class="flbl">Adulte (€)</label><input class="finp" type="number" id="dvep-${v.id}" value="${v.price}"/></div><div><label class="flbl">Enfant (€)</label><input class="finp" type="number" id="dvee-${v.id}" value="${v.priceEnf}"/></div></div><button class="fsave-btn" onclick="saveEditV(${v.id})" style="margin-bottom:.4rem">Enregistrer</button></div>`;
+    l.appendChild(d);
+  });
+}
+function toggleEditV(id){const f=document.getElementById('dve-'+id);f.style.display=f.style.display==='block'?'none':'block';}
+function saveEditV(id){const v=visitesDb.find(x=>x.id===id);if(!v)return;v.name=document.getElementById('dven-'+id).value;v.dur=document.getElementById('dved-'+id).value;v.price=parseFloat(document.getElementById('dvep-'+id).value)||v.price;v.priceEnf=parseFloat(document.getElementById('dvee-'+id).value)||v.priceEnf;renderDbVisites();}
+function toggleActiveV(id){const v=visitesDb.find(x=>x.id===id);if(v){v.active=!v.active;renderDbVisites();}}
+function addVisiteForm(){document.getElementById('new-visite-form').style.display='block';document.getElementById('add-visite-btn').style.display='none';}
+function cancelNewVisite(){document.getElementById('new-visite-form').style.display='none';document.getElementById('add-visite-btn').style.display='block';}
+function saveNewVisite(){const nom=document.getElementById('nv-nom').value.trim();if(!nom){alert('Nom requis.');return;}visitesDb.push({id:nextVId++,name:nom,desc:document.getElementById('nv-desc').value||'',price:parseFloat(document.getElementById('nv-prix').value)||0,priceEnf:parseFloat(document.getElementById('nv-enf').value)||0,dur:document.getElementById('nv-duree').value||'1h',active:true});cancelNewVisite();['nv-nom','nv-desc','nv-prix','nv-enf','nv-duree'].forEach(id=>document.getElementById(id).value='');renderDbVisites();}
+function buildHoraires(cid){const c=document.getElementById(cid);if(!c||c.innerHTML.trim()!=='')return;const days=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'],def=[true,true,true,true,true,true,false];c.innerHTML=days.map((d,i)=>`<div class="horaire-day"><input type="checkbox" class="horaire-check" ${def[i]?'checked':''}/><span class="horaire-day-name">${d}</span><input type="time" class="horaire-time" value="09:00"/>–<input type="time" class="horaire-time" value="18:00"/></div>`).join('');}
+function addDateSpec(){dsCounter++;const id='ds-s'+dsCounter;const l=document.getElementById('dates-specifiques-list');const d=document.createElement('div');d.className='ds-item';d.id=id;const df=new Date();df.setDate(df.getDate()+30);const ds=df.toISOString().split('T')[0];d.innerHTML=`<div class="ds-header"><span class="ds-title">Date #${dsCounter}</span><button onclick="document.getElementById('${id}').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:.8rem">✕</button></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.5rem"><div><label class="flbl">Date</label><input class="finp" type="date" value="${ds}"/></div><div><label class="flbl">Visite</label><select class="fsel">${visitesDb.map(v=>`<option>${v.name}</option>`).join('')}</select></div></div><div style="margin-bottom:.5rem"><label class="flbl">Note</label><input class="finp" placeholder="ex: Journée du patrimoine"/></div><label class="flbl">Créneaux</label><div class="creneaux-list" id="cr-${id}"><span class="creneau-tag">10h00 <button onclick="this.parentElement.remove()">✕</button></span><span class="creneau-tag">14h30 <button onclick="this.parentElement.remove()">✕</button></span></div><div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem"><input type="time" class="horaire-time" id="crt-${id}" value="16:00"/><button class="add-cr-btn" onclick="addCr('${id}')">+ Ajouter</button></div>`;l.appendChild(d);}
+function addCr(dsId){const t=document.getElementById('crt-'+dsId);if(!t)return;const h=t.value.split(':');const label=h[0]+'h'+(h[1]==='00'?'00':h[1]);const tag=document.createElement('span');tag.className='creneau-tag';tag.innerHTML=`${label} <button onclick="this.parentElement.remove()">✕</button>`;document.getElementById('cr-'+dsId).appendChild(tag);}
+function saveProfile(){const m=document.getElementById('saved-msg');m.style.display='block';setTimeout(()=>m.style.display='none',3000);}
+
+// ── COMMENT ÇA MARCHE ────────────────────────────────────────────────────────
+function cmhTab(btn,id){document.querySelectorAll('.cmh-tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.cmh-panel').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');}
+const FAQS=[{q:"Faut-il un compte pour réserver ?",a:"Non. Un simple email suffit. Un compte vous permet de retrouver vos réservations."},{q:"Comment annuler ?",a:"Chaque édifice fixe sa politique. En général, annulation > 48h = remboursement 100%."},{q:"Les guides sont-ils professionnels ?",a:"Curés, historiens locaux, bénévoles passionnés — des personnes qui aiment leur édifice. VIDI vérifie la qualité."},{q:"Mon édifice est peu connu. Est-ce adapté ?",a:"C'est exactement pour ça que VIDI existe ! Chapelles isolées, prieurés, petites églises romanes sont au cœur du projet."},{q:"Comment fonctionne le paiement pour les édifices ?",a:"VIDI collecte et reverse après la visite, déduction de la commission (12% ou 8% pour les petits édifices ruraux)."},{q:"Peut-on organiser un groupe ?",a:"Oui — via la page Demandes spécifiques."},{q:"Toutes les confessions sont-elles acceptées ?",a:"Oui. Catholiques, protestants, mosquées, synagogues, temples — tous les lieux de culte."}];
+function renderFaq(){document.getElementById('faq-list').innerHTML=FAQS.map((f,i)=>`<div class="faq-item"><div class="faq-q" onclick="toggleFaq(${i})"><span>${f.q}</span><span id="fi-${i}">+</span></div><div class="faq-a" id="fa-${i}">${f.a}</div></div>`).join('');}
+function toggleFaq(i){const a=document.getElementById('fa-'+i);const open=a.classList.toggle('open');document.getElementById('fi-'+i).textContent=open?'−':'+';}
+
+// ── INSCRIPTION ──────────────────────────────────────────────────────────────
+function submitIns(){const n=document.getElementById('fn').value;if(!n.trim()){alert('Renseignez le nom.');return;}const m=document.getElementById('success-msg');m.style.display='block';m.scrollIntoView({behavior:'smooth'});}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+document.getElementById('bk-pax').addEventListener('change',updateTotal);
+renderFaq(); applyFilters();
+</script>
+</body>
+</html>
